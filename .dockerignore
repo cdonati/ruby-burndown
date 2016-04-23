@@ -1,0 +1,6 @@
+.dockerignore
+Dockerfile
+.git
+.hg
+.svn
+appscale.git

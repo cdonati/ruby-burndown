@@ -99,7 +99,7 @@ def refresh():
         chart_data = json.loads(chart_data_json.decode('utf-8'))
         updated = dateutil.parser.parse(chart_data['updated'])
         if updated > (datetime.datetime.now() - datetime.timedelta(hours=1)):
-            return chart_data['data']
+            return json.dumps(chart_data['data'])
     try:
         repo = git.Repo(LOCAL_REPO)
         repo.remotes.origin.pull()

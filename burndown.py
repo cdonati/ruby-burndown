@@ -73,7 +73,7 @@ def chart():
         repo = git.Repo(LOCAL_REPO)
     except git.exc.NoSuchPathError:
         return '[]'
-    commits = fetch_commits(repo.head.commit)
+    commits = fetch_commits(repo.head.commit, count=30)
     return to_json(commits)
 
 

@@ -6,7 +6,7 @@ import json
 import logging
 import os
 
-from flask import Flask, render_template
+from flask import Flask, render_template, send_file
 from pymemcache.client.base import Client
 
 REMOTE_REPO = 'https://github.com/AppScale/appscale.git'
@@ -112,6 +112,11 @@ def refresh():
              'data': json_safe(commits)}
     memcache_client.set(MEMCACHE_KEY, json.dumps(cache))
     return cache['data']
+
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_file('static/favicon.ico')
 
 
 if __name__ == '__main__':

@@ -1,13 +1,22 @@
 #!/usr/bin/env python3
 import datetime
+import dateutil.parser
 import git
 import json
+import logging
+import os
 
 from flask import Flask, render_template
+from pymemcache.client.base import Client
 
 REMOTE_REPO = 'https://github.com/AppScale/appscale.git'
 LOCAL_REPO = 'appscale.git'
 RUBY_DIR = 'AppController'
+MEMCACHE_ADDR = os.environ.get('MEMCACHE_PORT_11211_TCP_ADDR', 'localhost')
+MEMCACHE_PORT = os.environ.get('MEMCACHE_PORT_11211_TCP_PORT', 11211)
+MEMCACHE_KEY = 'chart_data'
+
+memcache_client = Client((MEMCACHE_ADDR, MEMCACHE_PORT))
 app = Flask(__name__)
 
 
@@ -27,12 +36,12 @@ def commit_affected_ruby(commit):
     return False
 
 
-def to_json(commits):
+def json_safe(commits):
     for commit in commits:
         commit['date'] = commit['date'].isoformat()
         del commit['id']
     commits.reverse()
-    return json.dumps(commits)
+    return commits
 
 
 def fetch_commits(start_commit, start_date):
@@ -71,23 +80,38 @@ def main():
 @app.route('/chart')
 def chart():
     try:
+        cache = memcache_client.get(MEMCACHE_KEY)
+        if cache is None:
+            return refresh()
+        chart_data = json.loads(cache.decode('utf-8'))['data']
+    except ConnectionRefusedError:
+        logging.warning('Unable to access memcached.')
         repo = git.Repo(LOCAL_REPO)
-    except git.exc.NoSuchPathError:
-        return '[]'
-    start_date = datetime.datetime.now() - datetime.timedelta(weeks=52)
-    commits = fetch_commits(repo.head.commit, start_date)
-    return to_json(commits)
+        start_date = datetime.datetime.now() - datetime.timedelta(weeks=52)
+        chart_data = json_safe(fetch_commits(repo.head.commit, start_date))
+    return json.dumps(chart_data)
 
 
 @app.route('/refresh')
 def refresh():
+    chart_data_json = memcache_client.get(MEMCACHE_KEY)
+    if chart_data_json is not None:
+        chart_data = json.loads(chart_data_json.decode('utf-8'))
+        updated = dateutil.parser.parse(chart_data['updated'])
+        if updated > (datetime.datetime.now() - datetime.timedelta(hours=1)):
+            return chart_data['data']
     try:
         repo = git.Repo(LOCAL_REPO)
+        repo.remotes.origin.pull()
     except git.exc.NoSuchPathError:
         git.Repo.clone_from(REMOTE_REPO, LOCAL_REPO)
-        return 'Cloned repo.'
-    repo.remotes.origin.pull()
-    return 'Updated repo.'
+        repo = git.Repo(LOCAL_REPO)
+    start_date = datetime.datetime.now() - datetime.timedelta(weeks=52)
+    commits = fetch_commits(repo.head.commit, start_date)
+    cache = {'updated': datetime.datetime.now().isoformat(),
+             'data': json_safe(commits)}
+    memcache_client.set(MEMCACHE_KEY, json.dumps(cache))
+    return cache['data']
 
 
 if __name__ == '__main__':

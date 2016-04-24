@@ -1,3 +1,5 @@
 Flask
 gitpython
 gunicorn
+pymemcache
+python-dateutil

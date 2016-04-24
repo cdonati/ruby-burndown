@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import datetime
 import git
 import json
 
@@ -34,7 +35,7 @@ def to_json(commits):
     return json.dumps(commits)
 
 
-def fetch_commits(start_commit, count=10):
+def fetch_commits(start_commit, start_date):
     commits = []
     commit = start_commit
     first_commit = True
@@ -43,7 +44,9 @@ def fetch_commits(start_commit, count=10):
             commit = commit.parents[0]
         first_commit = False
 
-        commit_date = commit.committed_datetime
+        commit_date = commit.committed_datetime.replace(tzinfo=None)
+        if commit_date < start_date:
+            break
 
         if commits:
             last_commit_date = commits[-1]['date']
@@ -57,8 +60,6 @@ def fetch_commits(start_commit, count=10):
 
         commits.append({'date': commit_date, 'lines': ruby_loc(commit),
                         'id': commit.hexsha})
-        if len(commits) >= count:
-            break
     return commits
 
 
@@ -73,7 +74,8 @@ def chart():
         repo = git.Repo(LOCAL_REPO)
     except git.exc.NoSuchPathError:
         return '[]'
-    commits = fetch_commits(repo.head.commit, count=30)
+    start_date = datetime.datetime.now() - datetime.timedelta(weeks=52)
+    commits = fetch_commits(repo.head.commit, start_date)
     return to_json(commits)
 
 

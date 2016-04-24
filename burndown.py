@@ -13,7 +13,7 @@ REMOTE_REPO = 'https://github.com/AppScale/appscale.git'
 LOCAL_REPO = 'appscale.git'
 RUBY_DIR = 'AppController'
 MEMCACHE_ADDR = os.environ.get('MEMCACHE_PORT_11211_TCP_ADDR', 'localhost')
-MEMCACHE_PORT = os.environ.get('MEMCACHE_PORT_11211_TCP_PORT', 11211)
+MEMCACHE_PORT = int(os.environ.get('MEMCACHE_PORT_11211_TCP_PORT', 11211))
 MEMCACHE_KEY = 'chart_data'
 
 memcache_client = Client((MEMCACHE_ADDR, MEMCACHE_PORT))
